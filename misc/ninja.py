@@ -22,7 +22,7 @@ class Writer(object):
             self.output.write('# ' + line + '\n')
 
     def variable(self, key, value, indent=0):
-        self._line('%s%s = %s' % ('  ' * indent, key, value), indent)
+        self._line('%s = %s' % (key, value), indent)
 
     def rule(self, name, command, description=None, depfile=None):
         self._line('rule %s' % name)
@@ -54,34 +54,29 @@ class Writer(object):
 
         return outputs
 
-    # write 'text' word-wrapped at self.width characters
     def _line(self, text, indent=0):
+        """Write 'text' word-wrapped at self.width characters."""
+        leading_space = '  ' * indent
         while len(text) > self.width:
-            # we're searching for the last space in the
-            # word-wraped area, and if non found we're looking
-            # for the first space after the word-wrapped area.
-            # for instance, if we want to wrap
-            # "a b ghijkl mnopq" at 4 characters, wel'll first
-            # the substring that fits the word wrapped area is
-            # "a b ", so the last space (marked ~) is "a b~",
-            # we'll print "a b ", next substring that fits
-            # word wrapped area is "ghij", since there are no
-            # spaces there, we'll look for the first space in
-            # "kl mno" which is "kl~mno", we'll print
-            # "ghijk " and continue to the next substring.
-            # Now at "mnop" we have no space, and neither
-            # at the next substring "q". In that case we'll
-            # just print all current string, and stop.
-            space = text.rfind(' ', 0, self.width - 4)
-            if space < 0 or text[:space].strip() == "":
-                space = text.find(' ',self.width -4)
-            leading_space = '  ' * (indent+2)
-            if space < 0 or text[:space].strip() == "":
-                text = leading_space + text.lstrip()
+            # The text is too wide; wrap if possible.
+
+            # Find the rightmost space that would obey our width constraint.
+            available_space = self.width - len(leading_space) - len(' $')
+            space = text.rfind(' ', 0, available_space)
+            if space < 0:
+                # No such space; just use the first space we can find.
+                space = text.find(' ', available_space)
+            if space < 0:
+                # Give up on breaking.
                 break
-            self.output.write(text[0:space] + ' $\n')
-            text = leading_space + text[space:].lstrip()
-        self.output.write(text + '\n')
+
+            self.output.write(leading_space + text[0:space] + ' $\n')
+            text = text[space+1:]
+
+            # Subsequent lines are continuations, so indent them.
+            leading_space = '  ' * (indent+2)
+
+        self.output.write(leading_space + text + '\n')
 
     def _as_list(self, input):
         if input is None:
